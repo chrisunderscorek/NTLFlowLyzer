@@ -6,7 +6,7 @@ from enum import Enum
 from typing import List
 from scipy import stats
 
-from NTLFlowLyzer.network_flow_capturer.packet import Packet
+from NTLFlowLyzer_udp.network_flow_capturer.packet import Packet
 from ..network_flow_capturer import Flow
 from .feature import Feature
 from . import utils

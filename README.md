@@ -6,6 +6,25 @@ As part of the Understanding Cybersecurity Series (UCS), NTLFlowLyzer is a Pytho
 
 NTLFlowLyzer generates bidirectional flows from the Network and Transportation Layers of network traffic, where the first packet determines the forward (source to destination) and backward (destination to source) directions, hence the statistical time-related features can be calculated separately in the forward and backward directions. Additional functionalities include selecting features from the list of existing features, adding new features, and controlling the duration of flow timeout. Moreover, TCP flows are terminated upon connection teardown (by FIN or RST packet), reaching the flow's maximum duration, or being inactive for a certain amount of time (timeout).
 
+## UDP Fork Note
+
+This fork packages the tool as `NTLFlowLyzer-UDP` and installs the console
+command `ntlflowlyzer_udp`.
+
+User story: as a security researcher processing malware sandbox PCAPs, I need one
+NetFlow-style export that includes both TCP and UDP activity, because malware
+samples often use UDP for DNS, discovery, C2 bootstrap, or short-lived payload
+traffic. Dropping UDP packets at the flow-generation step leaves downstream
+labeling and analysis with an incomplete view of the sample behavior.
+
+The patch keeps the original flow and feature schema but also creates flows from
+UDP packets. TCP-only packet fields and TCP-only derived features are kept in the
+output for schema compatibility; for UDP they are filled with neutral packet
+values or `NaN` feature values. TCP flow behavior is intended to stay unchanged.
+
+The changes are documented in detail in [docs/udp-support.md](docs/udp-support.md).
+The original upstream project is <https://github.com/ahlashkari/NTLFlowLyzer>.
+
 
 # Table of Contents
 
@@ -46,7 +65,7 @@ pip3 install .
 After successfully installing the package, confirm the installation by running the following command:
 
 ```bash
-ntlflowlyzer --version
+ntlflowlyzer_udp --version
 ```
 
 
@@ -173,7 +192,7 @@ You can use `-h` to see different options of the program.
 To execute NTLFlowLyzer, simply run the following command:
 
 ```bash
-ntlflowlyzer -c YOUR_CONFIG_FILE
+ntlflowlyzer_udp -c YOUR_CONFIG_FILE
 ```
 
 Replace `YOUR_CONFIG_FILE` with the path to your configuration file.

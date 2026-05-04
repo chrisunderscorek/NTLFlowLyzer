@@ -185,7 +185,11 @@ class NetworkFlowCapturer:
                     continue
                 ip = eth.data
 
-                if not isinstance(ip.data, dpkt.tcp.TCP):
+                # Original NTLFlowLyzer only creates flows from TCP packets.
+                # The UDP fork keeps the same Flow/Packet model and fills
+                # TCP-only packet fields with neutral values below.
+                transport = ip.data
+                if not isinstance(transport, (dpkt.tcp.TCP, dpkt.udp.UDP)):
                     continue
 
                 if (socket.inet_ntoa(ip.src) == self.__vxlan_ip) or (socket.inet_ntoa(ip.dst) == self.__vxlan_ip):
@@ -194,27 +198,45 @@ class NetworkFlowCapturer:
                         (socket.inet_ntoa(ip.dst) == self.__vxlan_ip and socket.inet_ntoa(ip.src)[0:5] == "10.0.")):
                         continue
 
-                if not isinstance(ip.data, dpkt.tcp.TCP):
-                    continue
+                if isinstance(transport, dpkt.tcp.TCP):
+                    tcp_layer = transport
+                    network_protocol = 'TCP'
+                    src_port = tcp_layer.sport
+                    dst_port = tcp_layer.dport
+                    payload = tcp_layer.data
 
-                tcp_layer = ip.data
-                network_protocol = 'TCP'
-                window_size = tcp_layer.win
-                tcp_flags = tcp_layer.flags
-                seq_number = tcp_layer.seq
-                ack_number = tcp_layer.ack
+                    window_size = tcp_layer.win
+                    tcp_flags = tcp_layer.flags
+                    seq_number = tcp_layer.seq
+                    ack_number = tcp_layer.ack
+                    header_size = len(tcp_layer) - len(payload)
+                else:
+                    udp_layer = transport
+                    network_protocol = 'UDP'
+                    src_port = udp_layer.sport
+                    dst_port = udp_layer.dport
+                    payload = udp_layer.data
+
+                    # UDP has no flags, sequence numbers, acknowledgements, or
+                    # advertised receive window. Keep those columns present for
+                    # schema compatibility but mark the packet-level value as 0.
+                    window_size = 0
+                    tcp_flags = 0
+                    seq_number = 0
+                    ack_number = 0
+                    header_size = len(udp_layer) - len(payload)
 
                 nlflyzer_packet = Packet(
                     src_ip=socket.inet_ntoa(ip.src), 
-                    src_port=tcp_layer.sport,
+                    src_port=src_port,
                     dst_ip=socket.inet_ntoa(ip.dst), 
-                    dst_port=tcp_layer.dport,
+                    dst_port=dst_port,
                     protocol=network_protocol, 
                     flags=tcp_flags,
                     timestamp=ts, 
                     length=len(new_buf),
-                    payloadbytes=len(tcp_layer.data), 
-                    header_size=len(ip.data) - len(tcp_layer.data),
+                    payloadbytes=len(payload),
+                    header_size=header_size,
                     window_size=window_size,
                     seq_number=seq_number,
                     ack_number=ack_number)
